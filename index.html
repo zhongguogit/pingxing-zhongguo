@@ -905,6 +905,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
 <!-- ============ 赚钱 ============ -->
 <section class="page" id="page-ads">
   <div class="banner">💡 <b>生态核心：帮别人打广告反而赚钱。</b>广告主挂广告设佣金 → 任何公民点"推广"拿专属链接 → 拍视频/发群 → 有人成交 → 佣金自动到账。谁都能赚，越热心越赚。</div>
+  <div id="helpBoard"></div>
   <div id="adGate"></div>
   <div class="card">
     <h2>🎨 一句话生成广告海报</h2>
@@ -1358,6 +1359,20 @@ function steleRespect(name){
   toast('🕯️ 瞻仰成功——全球瞻仰人次已+1，地球村铭记每一份善');
   renderStele();
 }
+/* ===== 互助功德榜：谁帮谁做了多少生意，系统自动算，永不漏记 ===== */
+function renderHelpBoard(){
+  const box=$('helpBoard');if(!box)return;
+  const agg={};
+  DB.refHits.filter(h=>h.paid&&h.ref).forEach(h=>{
+    const a=DB.ads.find(x=>x.id==h.adId);if(!a)return;
+    agg[h.ref]=agg[h.ref]||{deals:0,coins:0};
+    agg[h.ref].deals++;agg[h.ref].coins+=Math.round(a.price*a.rate/100);
+  });
+  const rows=Object.entries(agg).sort((x,y)=>y[1].deals-x[1].deals||y[1].coins-x[1].coins);
+  box.innerHTML='<div class="card"><h2>🤝 互助功德榜 <span class="tag">系统自动计算 · 永不漏记</span></h2>'+
+  (rows.length?rows.map(([n,v],i)=>`<div class="item"><b>第${i+1}名 ${esc(n)}</b> · 帮人成交 ${v.deals} 单 · 带来 ${v.coins} 币生意机会${n===ME?' ← 这是你':''}</div>`).join(''):'<p class="hint">还没有互助成交——第一个帮别人卖货的，功德榜第一名就是 TA。</p>')+
+  '<p class="hint">在这里，大家灵魂深处都是善良的，相处舒服自在：谁贡献了多少生意机会，系统自动记账、自动算贡献值，谁也漏不了、赖不掉——帮忙越多，功德越高，碑文抽奖机会也越多。</p></div>';
+}
 function stelePoster(name){
   const c=DB.citizens[name],s=DB.stele[name];if(!c||!s)return;
   const cv=$('trioCanvas');if(!cv)return toast('先打开「枢纽」页再生成');
@@ -1581,6 +1596,7 @@ function dropStudy(){DB.citizens[ME].study=null;DB.save();renderAcademy()}
 
 /* ===== 广告 + 返佣 ===== */
 function renderAds(){
+  renderHelpBoard();
   const c=ME&&DB.citizens[ME];
   $('adGate').innerHTML=(!c)?'<div class="locked">🔒 先办身份卡才能参与广告生态</div>':
     (!c.fpVerified)?'<div class="locked">🔒 未通过指纹核验，不能挂牌做广告。去「身份」页点"指纹核验"。——没指纹登录上去也干不了，这正是人人珍惜身份的原因</div>':
@@ -1664,13 +1680,13 @@ function confirmDeal(id){
   if(hits.length===0){DB.ledger.push({t:Date.now(),txt:`✅ ${ME} 自行成交「${a.title}」（无推广线索）`});DB.save();toast('已记录成交');renderAds();return}
   if(me.pc<cost)return toast(`需支付佣金+平台费 ${cost} 币，余额不足`);
   me.pc-=cost;DB.bank+=platform;
-  hits.forEach(h=>{
+      hits.forEach(h=>{
     h.paid=true;
     if(h.ref&&h.ref!==ME){
       if(!DB.citizens[h.ref]){DB.citizens[h.ref]={name:h.ref,card_no:cardNo(h.ref),city:'未知',pc:0,avatar:genAvatar(h.ref),created:Date.now(),fp:null,fpVerified:false,soul:[],heir:null,partner:null,dead:false,skills:{},xp:0,warmth:0,study:null,lastSeen:Date.now()}}
       const p=DB.citizens[h.ref];const cut=Math.round(a.price*a.rate/100);
       p.pc+=cut;p.warmth=(p.warmth||0)+10;
-      DB.ledger.push({t:Date.now(),txt:`💸 返佣自动生效：推广员 ${h.ref} 因「${a.title}」成交获得 ${cut} 币（买家:${h.buyer}）`});
+      DB.ledger.push({t:Date.now(),txt:`🤝 互助功德自动入账：推广员 ${h.ref} 为 ${a.owner} 的「${a.title}」带来 1 个生意机会（买家:${h.buyer}），佣金 ${cut} 币自动到账，贡献值+10 由系统自动计算——永不漏记`});
     }
   });
   DB.ledger.push({t:Date.now(),txt:`✅ ${ME} 确认成交「${a.title}」×${hits.length}，平台服务费 ${platform} 币`});
