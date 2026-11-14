@@ -793,6 +793,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
   <button data-p="ads">💰 赚钱</button>
   <button data-p="academy">🎓 分身</button>
   <button data-p="life">💞 生活</button>
+  <button data-p="hub">🧰 枢纽</button>
 </nav>
 
 <main>
@@ -958,8 +959,50 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
   </div>
 </section>
 
+<!-- ============ 枢纽 ============ -->
+<section class="page" id="page-hub">
+  <div class="card">
+    <h2>🧬 我的密码三件套</h2>
+    <p class="hint">游客可以先随便体验。注册后第一步过指纹验证 → 平台发给你的密码不是一串数字，而是<b>一张图 + 一句口令 + 一段视频</b>。晒出去是名片，出示它们就是验明正身——手机文生图、图生视频全部在手机本地完成。</p>
+    <div id="trioBox"></div>
+    <canvas id="trioCanvas" width="720" height="960" style="display:none"></canvas>
+  </div>
+  <div class="card">
+    <h2>🧰 原子工具集 <span class="tag">每个都是最小可用版 · 全手机本地跑</span></h2>
+    <p class="hint">你的手机 = 所有工具的枢纽。轻到没有服务器，快到离线可用。</p>
+    <div id="toolBox">
+      <details open><summary>🧮 计算器</summary><div style="padding:8px 0">
+        <div class="form-row"><input id="calcIn" placeholder="输入算式，如 12*(3+4)/2"><button class="btn" style="flex:0 0 auto" onclick="try{$('calcOut').textContent=Function('return('+$('calcIn').value+')')()}catch(e){$('calcOut').textContent='算式有误'}">=</button></div>
+        <b id="calcOut" style="font-size:20px"></b></div></details>
+      <details><summary>📝 记事本（本地保存）</summary><div style="padding:8px 0">
+        <textarea id="noteBox" placeholder="写点什么，自动保存在手机里…"></textarea>
+        <button class="btn small" onclick="localStorage.setItem('pc_note',$('noteBox').value);toast('已保存到本机')">💾 保存</button></div></details>
+      <details><summary>✅ 待办清单</summary><div style="padding:8px 0">
+        <div class="form-row"><input id="todoIn" placeholder="要做的事"><button class="btn" style="flex:0 0 auto" onclick="todoAdd()">＋</button></div>
+        <div id="todoList"></div></div></details>
+      <details><summary>⏱️ 秒表 / 倒计时</summary><div style="padding:8px 0">
+        <b id="swOut" style="font-size:26px">0.0s</b>
+        <div style="display:flex;gap:8px;margin:6px 0"><button class="btn small" onclick="swGo()">开始/停</button><button class="btn ghost small" onclick="swT=0;swShow()">清零</button></div>
+        <div class="form-row"><input id="cdMin" type="number" placeholder="倒计时分钟"><button class="btn" style="flex:0 0 auto" onclick="cdGo()">开始倒计时</button></div></div></details>
+      <details><summary>🎲 随机数 / 骰子</summary><div style="padding:8px 0">
+        <div class="form-row"><input id="rndMin" type="number" value="1" style="max-width:90px"><input id="rndMax" type="number" value="100" style="max-width:90px"><button class="btn" style="flex:0 0 auto" onclick="toast('🎲 '+(Math.floor(Math.random()*(+$('rndMax').value-+$('rndMin').value+1))+ +$('rndMin').value))">掷</button></div></div></details>
+      <details><summary>🌍 世界时钟</summary><div style="padding:8px 0">
+        <select id="tzSel" onchange="tzShow()"><option>Asia/Shanghai</option><option>Asia/Tokyo</option><option>Europe/London</option><option>Europe/Paris</option><option>America/New_York</option><option>Australia/Sydney</option><option>UTC</option></select>
+        <b id="tzOut" style="font-size:18px"></b></div></details>
+      <details><summary>📐 单位换算</summary><div style="padding:8px 0">
+        <div class="form-row"><input id="cvIn" type="number" placeholder="数值"><select id="cvSel"><option value="m_ft">米→英尺</option><option value="kg_lb">公斤→磅</option><option value="c_f">℃→℉</option><option value="usd_cny">美元→人民币(7.2)</option></select></div>
+        <button class="btn small" onclick="cvGo()">换算</button> <b id="cvOut"></b></div></details>
+      <details><summary>🔳 二维码生成 / 扫码验真</summary><div style="padding:8px 0">
+        <div class="form-row"><input id="qrIn" placeholder="要生成的文字/链接"><button class="btn" style="flex:0 0 auto" onclick="qrMake()">生成</button></div>
+        <div id="qrOut" style="background:#fff;padding:8px;border-radius:8px;display:inline-block"></div>
+        <div style="margin-top:10px"><button class="btn ghost small" onclick="qrScan()">📷 扫一扫（对准身份卡二维码）</button>
+        <video id="scanVideo" playsinline style="width:100%;max-height:220px;border-radius:10px;display:none;margin-top:8px"></video></div></div></details>
+    </div>
+  </div>
+</section>
+
 </main>
-<footer>平行中国 v3 · 单文件 · 无云无服务器 · 断网也能玩 · 部署 zhongguogit.github.io</footer>
+<footer>平行中国 v4 · 单文件 · 无云无服务器 · 断网也能玩 · 部署 zhongguogit.github.io</footer>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1005,7 +1048,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');$('page-'+b.dataset.p).classList.add('on');
   settleStudy();
-  const m={id:renderID,school:()=>renderSchools(false),ads:renderAds,academy:renderAcademy,life:renderLife};
+  const m={id:renderID,school:()=>renderSchools(false),ads:renderAds,academy:renderAcademy,life:renderLife,hub:renderHub};
   if(m[b.dataset.p])m[b.dataset.p]();
 });
 function goto(p){document.querySelector(`nav button[data-p="${p}"]`).click()}
@@ -1046,7 +1089,8 @@ async function register(){
   ME=name;localStorage.setItem('pc_me',name);
   DB.citizens[name]={name,card_no:cardNo(name),city:city||'未填',pc:100,avatar:myPhoto||genAvatar(name),
     created:Date.now(),fp,fpVerified:false,soul:qs.map((q,i)=>({q,a:hash(norm(as[i])+'∥'+name)})),
-    heir:heir||null,partner:null,dead:false,skills:{},xp:0,warmth:0,study:null,lastSeen:Date.now()};
+    heir:heir||null,partner:null,dead:false,skills:{},xp:0,warmth:0,study:null,lastSeen:Date.now(),
+    motto:null};  // 三件套口令在指纹验证时生成
   DB.save();toast('办卡成功！身份已与这台设备的指纹绑定');renderID();
 }
 function genAvatar(name){
@@ -1094,7 +1138,11 @@ function renderID(){
 function fpCheck(){
   const c=DB.citizens[ME];if(!c)return;
   getFP().then(fp=>{
-    if(fp===c.fp){c.fpVerified=true;DB.save();toast('✅ 指纹核验通过，广告权限已解锁');renderID()}
+    if(fp===c.fp){
+      c.fpVerified=true;
+      if(!c.motto){const t=makeMotto(ME,c.city);c.motto={text:t,hash:hash(norm(t)+'∥'+ME)}}
+      DB.save();toast('✅ 指纹通过！三件套密码已发放：图·口令·视频，去「枢纽」领取');renderID();renderHub();
+    }
     else toast('指纹不匹配：请在办卡的原始设备上核验');
   });
 }
@@ -1110,7 +1158,8 @@ function verify(){
   const c=Object.values(DB.citizens).find(x=>x.card_no===q||x.name.toUpperCase()===q);
   if(!c){v.className='verdict bad';v.innerHTML='❌ 查无此人 — 疑似伪造，拒绝办理任何业务。';return}
   v.className='verdict ok';
-  v.innerHTML=`✅ 验证通过 — <b>${esc(c.name)}</b>${c.dead?' 🕊️(灵魂守护中)':''} · ${levelOf(c.xp)} · 城市:${esc(c.city)}${c.partner?' · 伴侣:'+esc(c.partner):''}<br>照片与本人一致即线上线下同一个人。`;
+  v.innerHTML=`✅ 验证通过 — <b>${esc(c.name)}</b>${c.dead?' 🕊️(灵魂守护中)':''} · ${levelOf(c.xp)} · 城市:${esc(c.city)}${c.partner?' · 伴侣:'+esc(c.partner):''}<br>照片与本人一致即线上线下同一个人。
+    <div class="form-row" style="margin-top:8px"><input id="mottoIn" placeholder="可选：请对方出示三件套口令"><button class="btn small" style="flex:0 0 auto" onclick="checkMotto('${esc(c.name)}')">🔑 核对口令</button></div>`;
   if(!c.dead){
     $('soulTest').style.display='block';$('soulQs').dataset.target=c.name;
     $('soulQs').innerHTML=c.soul.map((s,i)=>`<div class="tag">${esc(s.q)}</div><input id="sa_v${i}" placeholder="答案 ${i+1}">`).join('');
@@ -1440,8 +1489,169 @@ function postMsg(){
   renderLife();
 }
 
+/* ===== 三件套密码：图 / 口令 / 视频（全手机本地生成） ===== */
+const MOODS=['清风','明月','麦浪','星辰','灯火','长风','故里','山河','稻香','星光'];
+function makeMotto(name,city){
+  const h=hash(name+(city||''));
+  return MOODS[parseInt(h.slice(0,2),36)%10]+'落在'+(city&&city!=='未填'?city:'平行世界')+' · 第'+(parseInt(h.slice(2,4),36)%8+1)+'盏灯';
+}
+async function drawTrioPoster(cv,c){
+  const x=cv.getContext('2d'),W=cv.width,H=cv.height;
+  const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,'#fdf9f0');g.addColorStop(1,'#f0e6cf');
+  x.fillStyle=g;x.fillRect(0,0,W,H);
+  x.strokeStyle='#c8102e';x.lineWidth=10;x.strokeRect(30,30,W-60,H-60);
+  x.fillStyle='#c8102e';x.font='900 64px serif';x.textAlign='center';x.fillText('平行中国',W/2,130);
+  x.font='24px sans-serif';x.fillStyle='#8a8578';x.fillText('PARALLEL CHINA · 全球一村',W/2,168);
+  x.beginPath();x.arc(W/2,340,122,0,7);x.strokeStyle='#d4a017';x.lineWidth=6;x.stroke();
+  const img=new Image();const ok=await new Promise(r=>{img.onload=r;img.onerror=r;img.src=c.avatar});
+  x.save();x.beginPath();x.arc(W/2,340,112,0,7);x.clip();
+  if(ok){const s=Math.max(224/img.width,224/img.height);x.drawImage(img,W/2-img.width*s/2,340-img.height*s/2,img.width*s,img.height*s)}
+  x.restore();
+  x.fillStyle='#1a1a2e';x.font='900 54px serif';x.fillText(c.name,W/2,520);
+  x.font='26px sans-serif';x.fillStyle='#5a5548';
+  x.fillText('卡号 '+c.card_no,W/2,576);
+  x.fillText(levelOf(c.xp)+' · 贡献 '+(c.xp+Math.round((c.warmth||0)*10)),W/2,618);
+  x.fillStyle='#c8102e';x.font='28px serif';x.fillText('口令：'+(c.motto?c.motto.text:'待指纹验证'),W/2,700);
+  if(c.heir){x.fillStyle='#8a8578';x.font='22px sans-serif';x.fillText('🕊️ 继承人：'+c.heir,W/2,744)}
+  const q=document.createElement('div');
+  new QRCode(q,{text:location.origin+location.pathname+'?verify='+c.card_no,width:170,height:170,colorDark:'#1a1a2e'});
+  await new Promise(r=>setTimeout(()=>{
+    const qi=q.querySelector('img')||q.querySelector('canvas');
+    if(qi)x.drawImage(qi,W/2-92,H-250,184,184);
+    x.fillStyle='#8a8578';x.font='22px sans-serif';x.fillText('扫码验真 · 一人一身份 · 断网也能玩',W/2,H-50);
+    r(true)},150));
+}
+async function genTrioImage(){
+  const c=DB.citizens[ME];if(!c)return;
+  const cv=$('trioCanvas');await drawTrioPoster(cv,c);
+  const url=cv.toDataURL('image/png');
+  $('trioImg').src=url;$('trioImg').style.display='block';
+  const dl=$('trioImgDl');dl.href=url;dl.style.display='inline-block';
+  toast('🖼️ 图已生成：点下载或长按保存');
+}
+function genTrioMotto(){
+  const c=DB.citizens[ME];if(!c||!c.motto)return toast('先过指纹验证');
+  $('trioMotto').textContent='「'+c.motto.text+'」';
+}
+function checkMotto(name){
+  const c=DB.citizens[name];const inp=$('mottoIn');
+  if(!c||!c.motto)return toast('对方还没领三件套');
+  if(inp&&hash(norm(inp.value)+'∥'+name)===c.motto.hash)toast('🔑 口令正确：图·文·视频三件套验明正身');
+  else toast('❌ 口令不对，警惕冒用');
+}
+let trioRec=null;
+async function genTrioVideo(){
+  const c=DB.citizens[ME];if(!c)return;
+  const cv=$('trioCanvas');await drawTrioPoster(cv,c);
+  const mime=['video/webm;codecs=vp9','video/webm','video/mp4'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m));
+  if(!mime)return toast('此手机不支持录制，图+口令已够验真');
+  const chunks=[];
+  trioRec=new MediaRecorder(cv.captureStream(30),{mimeType:mime});
+  trioRec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  trioRec.onstop=()=>{
+    const url=URL.createObjectURL(new Blob(chunks,{type:mime}));
+    const v=$('trioVid');v.src=url;v.style.display='block';
+    const dl=$('trioVidDl');dl.href=url;dl.download=c.name+'-验明正身.'+(mime.includes('mp4')?'mp4':'webm');dl.style.display='inline-block';
+    toast('🎬 视频已生成，可下载发群里晒');
+  };
+  trioRec.start();
+  const t0=Date.now(),x=cv.getContext('2d');
+  (function frame(){
+    const t=Math.min(1,(Date.now()-t0)/3000);
+    x.save();x.translate(cv.width/2,640);x.rotate((1-t)*0.9);
+    x.font='900 '+Math.round(56+t*36)+'px serif';x.textAlign='center';
+    x.fillStyle='rgba(200,16,46,'+(0.95-t*0.45)+')';
+    x.fillText('验 明 正 身',0,0);x.restore();
+    if(t<1)requestAnimationFrame(frame);else trioRec.stop();
+  })();
+}
+/* ===== 原子工具 ===== */
+let TODO=JSON.parse(localStorage.getItem('pc_todo')||'[]');
+function todoAdd(){const t=$('todoIn').value.trim();if(!t)return;TODO.push({t,done:false});$('todoIn').value='';todoSave()}
+function todoSave(){
+  if(!$('todoList'))return;
+  localStorage.setItem('pc_todo',JSON.stringify(TODO));
+  $('todoList').innerHTML=TODO.length?TODO.map((x,i)=>`<div class="item"><label style="text-decoration:${x.done?'line-through':'none'}"><input type="checkbox" ${x.done?'checked':''} onchange="TODO[${i}].done=this.checked;todoSave()"> ${esc(x.t)}</label></div>`).join(''):'<div class="empty">空空如也</div>';
+}
+let swOn=false;
+function swShow(){$('swOut').textContent=(parseFloat($('swOut').textContent)||0).toFixed(1)+'s'}
+function swGo(){
+  if(swOn){swOn=false;return}
+  swOn=true;let acc=parseFloat($('swOut').textContent)||0;const t0=Date.now();
+  const i=setInterval(()=>{if(!swOn){clearInterval(i);return}$('swOut').textContent=(acc+(Date.now()-t0)/1000).toFixed(1)+'s'},100);
+}
+function cdGo(){
+  const m=+$('cdMin').value||0;if(m<=0)return toast('填分钟数');
+  toast('⏳ 倒计时 '+m+' 分钟开始');let left=m*60;
+  const i=setInterval(()=>{left--;if(left<=0){clearInterval(i);toast('⏰ 时间到！')}else if(left%60===0)toast('还剩 '+left/60+' 分钟')},1000);
+}
+function tzShow(){
+  const tz=$('tzSel').value;
+  const tick=()=>{if(!$('tzOut'))return clearInterval(window._tzi);$('tzOut').textContent=tz+' → '+new Intl.DateTimeFormat('zh-CN',{timeZone:tz,hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date())};
+  tick();clearInterval(window._tzi);window._tzi=setInterval(tick,1000);
+}
+function cvGo(){
+  const v=+$('cvIn').value||0;
+  const f={m_ft:x=>x*3.2808+' 英尺',kg_lb:x=>x*2.2046+' 磅',c_f:x=>(x*9/5+32)+' ℉',usd_cny:x=>(x*7.2).toFixed(2)+' 元'}[$('cvSel').value];
+  $('cvOut').textContent=f(v);
+}
+function qrMake(){if(!$('qrIn').value)return toast('先填内容');$('qrOut').innerHTML='';new QRCode($('qrOut'),{text:$('qrIn').value,width:120,height:120})}
+let scanTimer=null;
+async function qrScan(){
+  if(!window.BarcodeDetector)return toast('此浏览器不支持扫码，请手动输卡号验真');
+  try{
+    const v=$('scanVideo');v.style.display='block';
+    v.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    await v.play();
+    const det=new BarcodeDetector(),c=document.createElement('canvas');
+    clearInterval(scanTimer);
+    scanTimer=setInterval(async()=>{
+      if(!v.videoWidth)return;
+      c.width=v.videoWidth;c.height=v.videoHeight;
+      c.getContext('2d').drawImage(v,0,0);
+      try{const r=await det.detect(c);
+        if(r.length){
+          clearInterval(scanTimer);v.srcObject.getTracks().forEach(t=>t.stop());v.style.display='none';
+          const m=r[0].rawValue.match(/verify=([A-Z0-9-]+)/);
+          goto('id');$('verifyNo').value=m?m[1]:r[0].rawValue;verify();toast('📷 扫码成功，已自动验真');
+        }}catch(e){}
+    },600);
+  }catch(e){toast('相机打不开：'+e.message)}
+}
+/* ===== 枢纽渲染 ===== */
+function renderHub(){
+  const c=ME&&DB.citizens[ME],box=$('trioBox');
+  if(!c){box.innerHTML='<div class="banner">👋 游客体验模式：地图、学堂、工具随便玩。<br>办卡 → 指纹验证 → 领「图·口令·视频」三件套密码，解锁认领/发言/赚钱。<br><button class="btn" style="margin-top:8px" onclick="goto(\'id\')">🪪 去办卡</button></div>'}
+  else if(!c.fpVerified){box.innerHTML='<div class="locked">🔒 第一步：过指纹验证——这是一人一身份的钥匙。<br><button class="btn" style="margin-top:8px" onclick="fpCheck()">🔐 立即验证</button></div>'}
+  else{
+    box.innerHTML=`
+      <div class="item"><b>🖼️ 图</b> · 身份海报（头像+卡号+口令+验真二维码）<br>
+        <img id="trioImg" style="width:190px;border-radius:10px;border:1px solid var(--line);display:none;margin-top:6px">
+        <div style="margin-top:6px"><button class="btn small" onclick="genTrioImage()">生成图</button>
+        <a id="trioImgDl" class="btn ghost small" style="text-decoration:none;display:none" download="${esc(c.name)}-身份海报.png">下载 PNG</a></div></div>
+      <div class="item"><b>🔑 口令</b> · 验真时可对答的第二密码<br>
+        <span id="trioMotto" style="color:var(--red-dark);font-weight:700"></span><br>
+        <button class="btn small" onclick="genTrioMotto();if(DB.citizens[ME].motto)navigator.clipboard.writeText(DB.citizens[ME].motto.text).then(()=>toast('口令已复制'))">显示并复制</button></div>
+      <div class="item"><b>🎬 视频</b> · 3 秒「验明正身」动画，手机本地录制<br>
+        <button class="btn small" onclick="genTrioVideo()">生成视频</button>
+        <video id="trioVid" controls style="width:210px;border-radius:10px;display:none;margin-top:6px"></video><br>
+        <a id="trioVidDl" class="btn ghost small" style="text-decoration:none;display:none;margin-top:4px">下载视频</a></div>`;
+    if(window._tzi)tzShow();
+  }
+  todoSave();
+}
 /* ===== 启动 ===== */
-drawMarkers();renderID();
+(function(){
+  drawMarkers();renderID();
+  if(!ME){
+    const card=document.querySelector('#page-map .card');
+    if(card){const b=document.createElement('div');b.className='banner';
+      b.innerHTML='👋 游客体验模式：先随便逛。<b>办卡 → 指纹验证 → 领「图·口令·视频」三件套密码</b>，解锁认领/发言/赚钱。';
+      card.insertBefore(b,card.firstChild)}
+  }
+  if($('noteBox'))$('noteBox').value=localStorage.getItem('pc_note')||'';
+  todoSave();
+})();
 </script>
 </body>
 </html>
