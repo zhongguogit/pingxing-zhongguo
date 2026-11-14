@@ -817,7 +817,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
 <section class="page" id="page-stele">
   <div class="card">
     <h2>🏛️ 功德碑文殿 <span class="tag">平台永久供养 · 永不撤销</span></h2>
-    <p class="hint">人还活着，就可以先把身后事安排好。贡献值排名越高，碑文抽奖机会越多——万一抽中头衔，走的时候很风光。碑一旦立起，由平台永久供养，灵魂分身世代守护，这就是为自己建的服务体系。</p>
+    <p class="hint">人还活着，就可以先把身后事安排好。贡献值排名越高，碑文抽奖机会越多——万一抽中头衔，走的时候很风光。碑一旦立起，由平台永久供养、永不撤销；<b>功德碑全球可见，任何地球村民都可瞻仰致敬</b>——这里记录的每一份善，都是在为地球村民谋福利谋福祉。</p>
     <div id="steleRank"></div>
     <div id="steleMine"></div>
     <div id="steleBoard"></div>
@@ -1305,18 +1305,24 @@ function renderStele(){
     <button class="btn small" style="margin:6px 0" onclick="steleSave()">💾 保存碑文草稿</button>
     <button class="btn small" onclick="steleDraw()">🎲 碑文抽奖（剩余机会:${steleDraws()}）</button>
     ${m.titles.length?`<div style="margin-top:6px">${m.titles.map(t=>`<div class="tag green">🏅 ${esc(t)}</div>`).join('')}</div>`:'<p class="hint">还没有头衔——贡献值每满100抽一次，头衔将刻上功德碑。</p>'}`;
-  // 功德碑预览（含已故者，永久供养）
-  const board=Object.values(DB.citizens).filter(x=>DB.stele[x.name]&&(x.dead||x.name===ME||DB.stele[x.name].titles.length));
-  $('steleBoard').innerHTML='<h2>🪦 功德碑林（平台永久供养 · 永不撤销）</h2>'+(board.map(x=>{
+  // 功德碑预览（全球瞻仰：含已故者，永久供养）
+  const board=Object.values(DB.citizens).filter(x=>DB.stele[x.name]);
+  $('steleBoard').innerHTML='<h2>🪦 功德碑林（全球可见 · 永久供养 · 永不撤销）</h2>'+(board.map(x=>{
     const s=DB.stele[x.name];
+    const nm=String(x.name).replace(/'/g,'');
     return `<div style="border:2px solid ${x.dead?'#c9a227':'var(--line)'};border-radius:12px;padding:12px;margin:8px 0;background:linear-gradient(180deg,#faf7ef,#f3eedd)">
       <div style="font-weight:800;color:#8b0000">${x.dead?'🕯️ 灵魂分身守护中':'🏛️'} ${esc(x.name)} 之碑</div>
       <div style="color:#c9a227;font-weight:700;margin:4px 0">${s.titles.map(t=>'「'+esc(t)+'」').join('')||'（虚位以待——等头衔刻上）'}</div>
       <div style="font-style:italic;color:#444">${esc(s.text||'碑文待题……')}</div>
       <div class="tag">${esc(s.style||STELE_STYLES[0])}</div>
       <div class="tag">贡献:${steleContribution(x)}</div>
+      <div class="tag">🌍 全球瞻仰:${s.respects||0}人次</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn ghost small" onclick="steleRespect('${nm}')">🕯️ 瞻仰致敬</button>
+        <button class="btn ghost small" onclick="stelePoster('${nm}')">🖼️ 瞻仰海报（发全球）</button>
+      </div>
       <div class="foot" style="margin-top:6px"><span>平行中国功德碑文殿</span><span>永久供养·永不撤销</span></div>
-    </div>`}).join('')||'<p class="hint">碑林虚位以待——第一位立碑者将永载史册。</p>');
+    </div>`}).join('')||'<p class="hint">碑林虚位以待——第一位立碑者将永载史册，全球瞻仰。</p>');
   if(c.dead)toast('🕯️ 你已进入灵魂守护状态，碑文殿由你的分身世代看守');
 }
 function steleSave(){
@@ -1341,6 +1347,40 @@ function steleDraw(){
     }
   }else toast('这次没抽中——继续攒贡献值，机会会越来越多');
   DB.stele[ME]=m;DB.save();renderStele();
+}
+/* ===== 全球瞻仰：任何人（含游客）可致敬 + 瞻仰海报发全球 ===== */
+DB.steleRespected=DB.steleRespected||{};
+function steleRespect(name){
+  const s=DB.stele[name];if(!s)return;
+  if(DB.steleRespected[name])return toast('你已经瞻仰过这块碑——敬意已收进功德箱');
+  DB.steleRespected[name]=1;s.respects=(s.respects||0)+1;DB.save();
+  inboxPush('🕯️ 瞻仰记录','你向「'+name+'」的功德碑献上了敬意。地球村铭记每一份善——这就是为村民谋的福祉。');
+  toast('🕯️ 瞻仰成功——全球瞻仰人次已+1，地球村铭记每一份善');
+  renderStele();
+}
+function stelePoster(name){
+  const c=DB.citizens[name],s=DB.stele[name];if(!c||!s)return;
+  const cv=$('trioCanvas');if(!cv)return toast('先打开「枢纽」页再生成');
+  cv.width=720;cv.height=960;const g=cv.getContext('2d');
+  g.fillStyle='#f3eedd';g.fillRect(0,0,720,960);
+  g.strokeStyle='#c9a227';g.lineWidth=10;g.strokeRect(24,24,672,912);
+  g.textAlign='center';
+  g.fillStyle='#8b0000';g.font='bold 64px serif';g.fillText(c.dead?'🕯️':'🏛️',360,130);
+  g.font='bold 56px serif';g.fillText(c.name+' 之碑',360,215);
+  g.fillStyle='#c9a227';g.font='bold 36px serif';g.fillText(s.titles.map(t=>'「'+t+'」').join('')||'（虚位以待）',360,280);
+  g.fillStyle='#333';g.font='32px serif';
+  const txt=s.text||'碑文待题……';let ty=350;
+  for(let i=0;i<txt.length;i+=18){g.fillText(txt.slice(i,i+18),360,ty);ty+=48}
+  g.fillStyle='#555';g.font='30px sans-serif';
+  g.fillText('🌍 全球瞻仰:'+(s.respects||0)+'人次 · 贡献:'+steleContribution(c),360,620);
+  g.fillText(s.style||STELE_STYLES[0],360,668);
+  g.fillStyle='#8b0000';g.font='bold 34px serif';
+  g.fillText('平行中国功德碑文殿',360,780);
+  g.font='26px serif';
+  g.fillText('永久供养 · 永不撤销 · 地球村民共瞻',360,830);
+  const a=document.createElement('a');a.href=cv.toDataURL('image/png');a.download='功德碑-'+c.name+'.png';a.click();
+  inboxPush('🖼️ 瞻仰海报已生成',c.name+' 之碑的海报已可发往全球——让全世界看见这份功德。');
+  toast('🖼️ 瞻仰海报已下载——发到群里，全球人都可瞻仰');
 }
 function logout(){localStorage.removeItem('pc_me');ME=null;SOUL=null;renderID()}
 
