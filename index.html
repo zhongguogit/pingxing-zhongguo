@@ -1575,6 +1575,33 @@ async function checkMotto(name){
   else{lockHit(name+'·口令');toast('❌ 口令不对，警惕冒用')}
 }
 let trioRec=null;
+/* ===== 配方密钥：三环防盗（提示词原文×图生图选色×视频细节，PBKDF2 只存密文） ===== */
+const R_COLORS=['朱红','黛蓝','玄黑','鎏金','翠青','月白','绛紫','松绿'];
+const R_V1=['印章居中','印章偏东','印章偏西','印章斜压角'];
+const R_V2=['云纹背景','水纹背景','雷纹背景','素面背景'];
+const R_V3=['正落章','斜落章','旋转落章','轻点落章'];
+function recipeRender(){
+  const c=DB.citizens[ME],box=$('recipeBox');if(!c||!box)return;
+  const sel=(id,arr)=>`<select id="${id}" style="width:100%;margin:4px 0">${arr.map(x=>`<option>${x}</option>`).join('')}</select>`;
+  box.innerHTML=`<div class="tag ${c.recipe?'green':''}">${c.recipe?'✅ 三环配方已设置（五项全密文）':'⚠️ 未设置——这是盗号者闯不过的关'}</div>
+  <input id="rPrompt" placeholder="第一关：文生图提示词原文" style="width:100%;margin:4px 0">
+  ${sel('rColor',R_COLORS)}${sel('rV1',R_V1)}${sel('rV2',R_V2)}${sel('rV3',R_V3)}
+  <button class="btn small" onclick="${c.recipe?'recipeVerify()':'recipeSet()'}">${c.recipe?'🔍 配方验真':'🔐 存储配方密钥'}</button>
+  <p class="hint">颜色8种 × 方位4 × 纹样4 × 落章4 = 512种组合，再乘上只有你知道的提示词原文——别人就算把海报和视频翻烂也倒推不出来；全答对才算本体。</p>`;
+}
+async function recipeSet(){
+  const c=DB.citizens[ME];if(!c)return;
+  if(!$('rPrompt').value.trim())return toast('第一关：提示词原文必须填');
+  c.recipe={p:await pbkdf2($('rPrompt').value,ME+'·提示词'),c:await pbkdf2($('rColor').value,ME+'·选色'),v1:await pbkdf2($('rV1').value,ME+'·方位'),v2:await pbkdf2($('rV2').value,ME+'·纹样'),v3:await pbkdf2($('rV3').value,ME+'·落章')};
+  DB.save();toast('🧬 配方密钥已存——提示词原文永不明文入库，这就是盗不走的身份');recipeRender();
+}
+async function recipeVerify(){
+  const c=DB.citizens[ME];if(!c||!c.recipe)return;
+  if(lockCheck(ME+'·配方'))return toast('🔒 已锁定 10 分钟（防破解保护）');
+  const [p,c1,v1,v2,v3]=await Promise.all([pbkdf2($('rPrompt').value,ME+'·提示词'),pbkdf2($('rColor').value,ME+'·选色'),pbkdf2($('rV1').value,ME+'·方位'),pbkdf2($('rV2').value,ME+'·纹样'),pbkdf2($('rV3').value,ME+'·落章')]);
+  if(p===c.recipe.p&&c1===c.recipe.c&&v1===c.recipe.v1&&v2===c.recipe.v2&&v3===c.recipe.v3){localStorage.removeItem('pc_lock');toast('🔑 三环全部答对——本体验明正身')}
+  else{lockHit(ME+'·配方');toast('❌ 配方不对：提示词、选色、视频细节要全对')}
+}
 async function genTrioVideo(){
   const c=DB.citizens[ME];if(!c)return;
   const cv=$('trioCanvas');await drawTrioPoster(cv,c);
@@ -1670,8 +1697,10 @@ function renderHub(){
       <div class="item"><b>🎬 视频</b> · 3 秒「验明正身」动画，手机本地录制<br>
         <button class="btn small" onclick="genTrioVideo()">生成视频</button>
         <video id="trioVid" controls style="width:210px;border-radius:10px;display:none;margin-top:6px"></video><br>
-        <a id="trioVidDl" class="btn ghost small" style="text-decoration:none;display:none;margin-top:4px">下载视频</a></div>`;
+        <a id="trioVidDl" class="btn ghost small" style="text-decoration:none;display:none;margin-top:4px">下载视频</a></div>
+      <div class="item"><b>🧬 配方密钥</b> · 三环防盗：提示词原文 → 图生图选色 → 视频细节（全存密文，原文永不入库）<div id="recipeBox" style="margin-top:6px"></div></div>`;
     if(window._tzi)tzShow();
+    recipeRender();
   }
   todoSave();
 }
