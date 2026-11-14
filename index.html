@@ -1187,7 +1187,8 @@ function renderID(){
   $('myStats').innerHTML=`
     <div class="tag ${c.fpVerified?'green':'red'}">${c.fpVerified?'广告权限:已解锁':'广告权限:未解锁'}</div>
     <div class="tag">分身学历:${levelOf(c.xp)}</div><div class="tag">热心:${c.warmth||0}</div>
-    ${c.heir?`<div class="tag">🕊️ 继承人:${esc(c.heir)}</div>`:''}`;
+    <div class="tag">🧬 可继承资产:${c.pc} 平行币 + 热心贡献${c.warmth||0} + 学历${levelOf(c.xp)}</div>
+    ${c.heir?`<div class="tag green">🕊️ 继承人:${esc(c.heir)} · 以上全部可传给他/她（传承再+20%贡献）</div>`:`<div class="tag red">⚠️ 未指定继承人——孩子还领不到这些，去灵魂契约指定</div>`}`;
 }
 async function fpCheck(){
   const c=DB.citizens[ME];if(!c)return;
@@ -1515,7 +1516,9 @@ function makeAd(){
   c.pc-=10;DB.bank+=10;
   const cv=document.createElement('canvas');cv.width=472;cv.height=352;drawPoster(cv,prompt,title);
   DB.ads.push({id:Date.now(),owner:ME,title,price,rate,prompt,img:cv.toDataURL('image/jpeg',.85)});
-  DB.save();toast('广告已挂牌！去点"推广赚佣"让人帮你卖');renderAds();
+  DB.save();
+  inboxPush('💰 广告投入已计入可继承资产','「'+title+'」投入10币挂牌。广告带来的每一笔成交佣金、攒下的每一分贡献值，将来全额传给'+(c.heir||'你的继承人')+'——花钱如流水也值了，这是造福子孙后代。');
+  toast('广告已挂牌！每一分回报都可传给'+(c.heir||'继承人')+'——去点「推广赚佣」让人帮你卖');renderAds();
 }
 function copyTpl(i){
   const t=document.querySelectorAll('#tplBox .item')[i];
