@@ -1595,20 +1595,37 @@ function makeRecipeAvatar(name,form,color,act){
 function recipeRender(){
   const c=DB.citizens[ME],box=$('recipeBox');if(!c||!box)return;
   const sel=(id,arr)=>`<select id="${id}" style="width:100%;margin:4px 0">${arr.map(x=>`<option>${x}</option>`).join('')}</select>`;
-  box.innerHTML=`<div class="tag ${c.recipe?'green':''}">${c.recipe?(c.recipe.f?'✅ 三环配方已设置（全密文）':'⚠️ 配方已升级，请重新设置'):'⚠️ 未设置——这是盗号者闯不过的关'}</div>
+  const locked=c.recipe&&c.recipe.f;
+  box.innerHTML=`<div class="tag ${locked?'green':''}">${locked?'✅ 灵魂拷问密码已正式录入（全密文）':'⚠️ 未录入——先试玩演练，熟悉了再正式'}</div>
   <input id="rPrompt" placeholder="第一关：提示词原文（如：一只毛茸茸的猫在庭院里）" style="width:100%;margin:4px 0">
   <div style="display:flex;gap:6px">${sel('rForm',R_FORM).replace('style="width:100%','style="width:33%')}${sel('rColor',R_COLORS).replace('style="width:100%','style="width:33%')}${sel('rAct',R_ACT).replace('style="width:100%','style="width:33%')}</div>
-  <button class="btn small" onclick="${c.recipe&&c.recipe.f?'recipeVerify()':'recipeSet()'}">${c.recipe&&c.recipe.f?'🔍 配方验真':'🔐 存配方 · 生成分身形象'}</button>
-  ${c.recipe&&c.recipe.f?'<img src="'+c.avatar+'" width="130" style="border-radius:12px;border:1px solid var(--line);margin-top:6px;display:block">':''}
-  <p class="hint">形象8 × 颜色8 × 动作8 = 512种组合，再乘只有你知道的提示词原文。三者+原文，错一个就不是本体；全存PBKDF2密文，原文永不入库。</p>`;
+  <div style="display:flex;gap:8px;margin:6px 0;flex-wrap:wrap;align-items:center">
+    <button class="btn ghost small" onclick="recipeDraft()">🎭 试玩演练（不录入）</button>
+    ${locked?'<button class="btn small" onclick="recipeVerify()">🔍 配方验真</button>':
+    `<label class="hint" style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" id="rcOK"> 我准备好了，正式录入</label>
+     <button class="btn small" onclick="recipeSet()">🔐 正式录入</button>`}
+  </div>
+  <div id="rPreview"></div>
+  <p class="hint">形象8 × 颜色8 × 动作8 = 512种组合，再乘只有你知道的提示词原文。三者+原文，错一个就不是本体；全存PBKDF2密文，原文永不入库。演练数据用完即弃，与正式密文完全隔离。</p>`;
+}
+async function recipeDraft(){
+  if(!$('rPrompt').value.trim())return toast('第一关：提示词原文必须填');
+  const f=$('rForm').value,col=$('rColor').value,act=$('rAct').value;
+  recipeDraftObj={p:await pbkdf2($('rPrompt').value,'演练·提示词'),f:await pbkdf2(f,'演练·形象'),c:await pbkdf2(col,'演练·颜色'),a:await pbkdf2(act,'演练·动作')};
+  const img=makeRecipeAvatar(ME,f,CHN_HEX[col],act);
+  $('rPreview').innerHTML=`<img src="${img}" width="130" style="border-radius:12px;border:1px dashed var(--line);margin-top:6px;display:block">
+  <p class="hint">🎭 演练成功！你的灵魂拷问密码是：<b>一只${col}的${f}在${act}</b>。这只是演习，没写进身份——熟悉了就勾选「我准备好了」正式录入。</p>`;
+  toast('🎭 演练完成（未录入，可反复换着试）');
 }
 async function recipeSet(){
   const c=DB.citizens[ME];if(!c)return;
+  if(!$('rcOK')||!$('rcOK').checked)return toast('先试玩演练，熟悉后勾选「☑️ 我准备好了，正式录入」');
   if(!$('rPrompt').value.trim())return toast('第一关：提示词原文必须填');
   const f=$('rForm').value,col=$('rColor').value,act=$('rAct').value;
   c.recipe={p:await pbkdf2($('rPrompt').value,ME+'·提示词'),f:await pbkdf2(f,ME+'·形象'),c:await pbkdf2(col,ME+'·颜色'),a:await pbkdf2(act,ME+'·动作')};
   c.avatar=makeRecipeAvatar(ME,f,CHN_HEX[col],act);
-  DB.save();toast('🧬 配方已存，分身形象已生成：一只'+col+'的'+f+'在'+act+'——错一个就不是本体');renderID();recipeRender();
+  recipeDraftObj=null;
+  DB.save();toast('🧬 灵魂拷问密码正式录入：一只'+col+'的'+f+'在'+act+'——从此错一个环就不是本体');renderID();recipeRender();
 }
 async function recipeVerify(){
   const c=DB.citizens[ME];if(!c)return;
@@ -1714,7 +1731,7 @@ function renderHub(){
         <button class="btn small" onclick="genTrioVideo()">生成视频</button>
         <video id="trioVid" controls style="width:210px;border-radius:10px;display:none;margin-top:6px"></video><br>
         <a id="trioVidDl" class="btn ghost small" style="text-decoration:none;display:none;margin-top:4px">下载视频</a></div>
-      <div class="item"><b>🧬 配方密钥</b> · 三环防盗：提示词原文 → 图生图选色 → 视频细节（全存密文，原文永不入库）<div id="recipeBox" style="margin-top:6px"></div></div>`;
+      <div class="item"><b>🧬 灵魂拷问密码</b> · 形象×颜色×动作+提示词原文，先试玩演练，熟悉后正式录入<div id="recipeBox" style="margin-top:6px"></div></div>`;
     if(window._tzi)tzShow();
     recipeRender();
   }
