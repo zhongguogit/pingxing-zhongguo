@@ -794,6 +794,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
   <button data-p="academy">🎓 分身</button>
   <button data-p="life">💞 生活</button>
   <button data-p="hub">🧰 枢纽</button>
+  <button data-p="stele">🏛️ 碑文殿</button>
 </nav>
 
 <main>
@@ -809,6 +810,17 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
       <button class="btn ghost small" onclick="map.setView([34,109],4)">🇨🇳 平行中国</button>
       <button class="btn small" onclick="myGeo((a,b)=>{map.setView([a,b],12);toast('已定位到你身边')})">📍 我的位置</button>
     </div>
+  </div>
+</section>
+
+<!-- ============ 碑文殿 ============ -->
+<section class="page" id="page-stele">
+  <div class="card">
+    <h2>🏛️ 功德碑文殿 <span class="tag">平台永久供养 · 永不撤销</span></h2>
+    <p class="hint">人还活着，就可以先把身后事安排好。贡献值排名越高，碑文抽奖机会越多——万一抽中头衔，走的时候很风光。碑一旦立起，由平台永久供养，灵魂分身世代守护，这就是为自己建的服务体系。</p>
+    <div id="steleRank"></div>
+    <div id="steleMine"></div>
+    <div id="steleBoard"></div>
   </div>
 </section>
 
@@ -1100,7 +1112,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');$('page-'+b.dataset.p).classList.add('on');
   settleStudy();
-  const m={id:renderID,school:()=>renderSchools(false),ads:renderAds,academy:renderAcademy,life:renderLife,hub:renderHub};
+  const m={id:renderID,school:()=>renderSchools(false),ads:renderAds,academy:renderAcademy,life:renderLife,hub:renderHub,stele:renderStele};
   if(m[b.dataset.p])m[b.dataset.p]();
 });
 function goto(p){document.querySelector(`nav button[data-p="${p}"]`).click()}
@@ -1265,6 +1277,71 @@ function addApp(){
   DB.customApps.push({n,u});DB.save();renderMarket();toast('✅ 已上架到你的枢纽——来者不拒');
 }
 function delApp(i){DB.customApps.splice(i,1);DB.save();renderMarket()}
+/* ===== 功德碑文殿：生前安排身后事，贡献值排名换抽奖，平台永久供养 ===== */
+DB.stele=DB.stele||{}; // {name:{text,style,titles:[],used}}
+const STELE_TITLES=['万世师表','一村之光','泽被后世','功在千秋','灵魂摆渡人','永远的老村长','子孙的灯塔','千金散尽还复来','百年好人','时代火车头','全球一村的铺路人','热心肠第一名'];
+const STELE_STYLES=['大理石·金漆','青石·阴刻','花岗岩·鎏金','汉白玉·红字'];
+function steleContribution(c){return (c.warmth||0)+Math.round((c.xp||0)/2)}
+function steleDraws(){ // 每100贡献值=1次抽奖机会
+  const c=DB.citizens[ME];if(!c)return 0;
+  const m=DB.stele[ME]||{used:0};
+  return Math.max(0,Math.floor(steleContribution(c)/100)-((m.used)||0));
+}
+function renderStele(){
+  if(!$('steleRank'))return;
+  // 功德排行榜（按贡献值）
+  const list=Object.values(DB.citizens).filter(c=>!c.dead).sort((a,b)=>steleContribution(b)-steleContribution(a)).slice(0,10);
+  $('steleRank').innerHTML='<h2>🏆 功德排行榜（贡献值=热心+学历/2）</h2>'+list.map((c,i)=>
+    `<div class="item"><b>第${i+1}名 ${esc(c.name)}</b> · 贡献${steleContribution(c)}${c.name===ME?' ← 这是你':''} <span class="tag">抽奖机会:${Math.floor(steleContribution(c)/100)}</span></div>`).join('')||'<p class="hint">还没有人在榜——第一个立碑的就是开创者。</p>';
+  // 我的碑文（生前预写身后事）
+  const c=DB.citizens[ME];
+  if(!c){$('steleMine').innerHTML='<div class="banner">还没办卡——办卡后就能为自己立碑、预写碑文。</div>';$('steleBoard').innerHTML='';return}
+  const m=DB.stele[ME]||{text:'',style:STELE_STYLES[0],titles:[],used:0};
+  DB.stele[ME]=m;
+  $('steleMine').innerHTML=`
+    <h2>🖋️ 我的碑文（生前预写，随时可改）</h2>
+    <select id="steleStyle" style="width:100%;margin:6px 0">${STELE_STYLES.map(s=>`<option ${s===m.style?'selected':''}>${s}</option>`).join('')}</select>
+    <textarea id="steleText" rows="3" style="width:100%" placeholder="写下你想刻在碑上的话，例如：此人一生热心助人，修学堂三所，全球一村有他铺的路。">${esc(m.text)}</textarea>
+    <button class="btn small" style="margin:6px 0" onclick="steleSave()">💾 保存碑文草稿</button>
+    <button class="btn small" onclick="steleDraw()">🎲 碑文抽奖（剩余机会:${steleDraws()}）</button>
+    ${m.titles.length?`<div style="margin-top:6px">${m.titles.map(t=>`<div class="tag green">🏅 ${esc(t)}</div>`).join('')}</div>`:'<p class="hint">还没有头衔——贡献值每满100抽一次，头衔将刻上功德碑。</p>'}`;
+  // 功德碑预览（含已故者，永久供养）
+  const board=Object.values(DB.citizens).filter(x=>DB.stele[x.name]&&(x.dead||x.name===ME||DB.stele[x.name].titles.length));
+  $('steleBoard').innerHTML='<h2>🪦 功德碑林（平台永久供养 · 永不撤销）</h2>'+(board.map(x=>{
+    const s=DB.stele[x.name];
+    return `<div style="border:2px solid ${x.dead?'#c9a227':'var(--line)'};border-radius:12px;padding:12px;margin:8px 0;background:linear-gradient(180deg,#faf7ef,#f3eedd)">
+      <div style="font-weight:800;color:#8b0000">${x.dead?'🕯️ 灵魂分身守护中':'🏛️'} ${esc(x.name)} 之碑</div>
+      <div style="color:#c9a227;font-weight:700;margin:4px 0">${s.titles.map(t=>'「'+esc(t)+'」').join('')||'（虚位以待——等头衔刻上）'}</div>
+      <div style="font-style:italic;color:#444">${esc(s.text||'碑文待题……')}</div>
+      <div class="tag">${esc(s.style||STELE_STYLES[0])}</div>
+      <div class="tag">贡献:${steleContribution(x)}</div>
+      <div class="foot" style="margin-top:6px"><span>平行中国功德碑文殿</span><span>永久供养·永不撤销</span></div>
+    </div>`}).join('')||'<p class="hint">碑林虚位以待——第一位立碑者将永载史册。</p>');
+  if(c.dead)toast('🕯️ 你已进入灵魂守护状态，碑文殿由你的分身世代看守');
+}
+function steleSave(){
+  const c=DB.citizens[ME],m=DB.stele[ME]||{titles:[],used:0};if(!c)return;
+  m.text=$('steleText').value.slice(0,120);m.style=$('steleStyle').value;
+  DB.stele[ME]=m;DB.save();
+  inboxPush('🏛️ 碑文已保存（身后事预安排）','碑文草稿：'+m.text+' · 样式：'+m.style+'。人还在，碑已立好——万一得奖，走的时候很风光。');
+  toast('碑文已保存——身后事已预安排，平台永久供养');renderStele();
+}
+function steleDraw(){
+  const c=DB.citizens[ME];if(!c)return;
+  if(steleDraws()<=0)return toast('抽奖机会用完——贡献值每满100（热心+学历/2）再得一次');
+  const m=DB.stele[ME]||{text:'',style:STELE_STYLES[0],titles:[],used:0};
+  m.used=(m.used||0)+1;
+  if(Math.random()<0.45){
+    const pool=STELE_TITLES.filter(t=>!m.titles.includes(t));
+    if(pool.length){
+      const t=pool[Math.floor(Math.random()*pool.length)];
+      m.titles.push(t);
+      inboxPush('🏅 碑文抽奖中得头衔！','恭喜「'+c.name+'」抽中头衔：'+t+'——将刻上功德碑，死的时候很风光，平台永久供养。');
+      toast('🏅 抽中头衔「'+t+'」！将刻上功德碑，走的时候很风光');
+    }
+  }else toast('这次没抽中——继续攒贡献值，机会会越来越多');
+  DB.stele[ME]=m;DB.save();renderStele();
+}
 function logout(){localStorage.removeItem('pc_me');ME=null;SOUL=null;renderID()}
 
 /* ===== 验卡 + 灵魂测试 ===== */
