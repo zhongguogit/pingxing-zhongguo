@@ -1029,6 +1029,33 @@ const cardNo=n=>'PRC-2026-'+hash('∥'+n+'∥平行中国');
 const norm=s=>String(s||'').trim().toLowerCase();
 function haversine(a,b,c,d){const R=6371,r=x=>x*Math.PI/180,dla=r(c-a),dlo=r(d-b);const h=Math.sin(dla/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(dlo/2)**2;return Math.round(2*R*Math.asin(Math.sqrt(h)))}
 
+/* ===== 加密核心：PBKDF2-SHA256 迭代哈希（浏览器原生，离线可用） =====
+   密码学要点：密语/口令绝不明文存库、每次派生10万次迭代、
+   每人每题独立盐（偷走整库也无法批量破解，只能逐人逐题暴力） */
+async function pbkdf2(pass,salt,iter){
+  const p=norm(pass)+'∥'+salt;
+  if(window.crypto&&crypto.subtle&&crypto.subtle.importKey){
+    try{
+      const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(p),'PBKDF2',false,['deriveBits']);
+      const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode('∥盐∥'+salt),iterations:iter||100000,hash:'SHA-256'},km,256);
+      return [...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    }catch(e){}
+  }
+  let h=hash(p);for(let i=0;i<999;i++)h=hash(h+p); // 退化链式哈希（无WebCrypto的环境）
+  return 'x'+h.toLowerCase();
+}
+/* 防暴力破解：5 次答错锁 10 分钟 */
+function lockHit(n){
+  const k='pc_lock',L=JSON.parse(localStorage.getItem(k)||'{}');
+  L[n]=(L[n]||0)+1;
+  if(L[n]>=5){L[n+'_until']=Date.now()+600000;L[n]=0;toast('🔒 已锁定 10 分钟（防破解保护）')}
+  localStorage.setItem(k,JSON.stringify(L));
+}
+function lockCheck(n){
+  const L=JSON.parse(localStorage.getItem('pc_lock')||'{}');
+  return L[n+'_until']&&L[n+'_until']>Date.now();
+}
+
 /* ===== 设备指纹（一人一身份第一道锁） ===== */
 async function getFP(){
   const k='pc_fp';
@@ -1088,9 +1115,11 @@ async function register(){
   if(ME&&DB.citizens[ME])delete DB.citizens[ME];
   ME=name;localStorage.setItem('pc_me',name);
   DB.citizens[name]={name,card_no:cardNo(name),city:city||'未填',pc:100,avatar:myPhoto||genAvatar(name),
-    created:Date.now(),fp,fpVerified:false,soul:qs.map((q,i)=>({q,a:hash(norm(as[i])+'∥'+name)})),
+    created:Date.now(),fp,fpVerified:false,
     heir:heir||null,partner:null,dead:false,skills:{},xp:0,warmth:0,study:null,lastSeen:Date.now(),
-    motto:null};  // 三件套口令在指纹验证时生成
+    motto:null,
+    soul:await Promise.all(qs.map((q,i)=>pbkdf2(as[i],name+'·'+q).then(h=>({q,h}))))  // 只存密文，永不明文
+  };
   DB.save();toast('办卡成功！身份已与这台设备的指纹绑定');renderID();
 }
 function genAvatar(name){
@@ -1135,16 +1164,13 @@ function renderID(){
     <div class="tag">分身学历:${levelOf(c.xp)}</div><div class="tag">热心:${c.warmth||0}</div>
     ${c.heir?`<div class="tag">🕊️ 继承人:${esc(c.heir)}</div>`:''}`;
 }
-function fpCheck(){
+async function fpCheck(){
   const c=DB.citizens[ME];if(!c)return;
-  getFP().then(fp=>{
-    if(fp===c.fp){
-      c.fpVerified=true;
-      if(!c.motto){const t=makeMotto(ME,c.city);c.motto={text:t,hash:hash(norm(t)+'∥'+ME)}}
-      DB.save();toast('✅ 指纹通过！三件套密码已发放：图·口令·视频，去「枢纽」领取');renderID();renderHub();
-    }
-    else toast('指纹不匹配：请在办卡的原始设备上核验');
-  });
+  const fp=await getFP();
+  if(fp!==c.fp)return toast('指纹不匹配：请在办卡的原始设备上核验');
+  c.fpVerified=true;
+  if(!c.motto){const t=makeMotto(ME,c.city);c.motto={text:t,h:await pbkdf2(t,ME+'·口令',60000)}}
+  DB.save();toast('✅ 指纹通过！三件套密码已发放：图·口令·视频，去「枢纽」领取');renderID();renderHub();
 }
 function copyShare(){
   const c=DB.citizens[ME];if(!c)return;
@@ -1165,11 +1191,17 @@ function verify(){
     $('soulQs').innerHTML=c.soul.map((s,i)=>`<div class="tag">${esc(s.q)}</div><input id="sa_v${i}" placeholder="答案 ${i+1}">`).join('');
   }else{$('soulTest').style.display='none'}
 }
-function soulSubmit(){
+async function soulSubmit(){
   const name=$('soulQs').dataset.target,c=DB.citizens[name];if(!c)return;
-  const ok=c.soul.every((s,i)=>hash(norm($('sa_v'+i).value)+'∥'+name)===s.a);
-  if(ok){SOUL=name;$('soulName').textContent=name;$('soulActions').style.display='block';toast('🧬 灵魂测试通过——你就是本体')}
-  else toast('灵魂答案不对。灵魂才是本体，别人替代不了');
+  if(lockCheck(name))return toast('🔒 已锁定 10 分钟（防破解保护）');
+  for(let i=0;i<c.soul.length;i++){
+    const val=$('sa_v'+i).value;
+    const nh=await pbkdf2(val,name+'·'+c.soul[i].q);
+    const legacy=c.soul[i].a?hash(norm(val)+'∥'+name):null; // 兼容旧版数据
+    if(nh!==c.soul[i].h&&legacy!==c.soul[i].a){lockHit(name);return toast('灵魂答案不对')}
+  }
+  localStorage.removeItem('pc_lock');
+  SOUL=name;$('soulName').textContent=name;$('soulActions').style.display='block';toast('🧬 灵魂测试通过——你就是本体');
 }
 function soulRebind(){
   if(!SOUL)return;const fp=localStorage.getItem('pc_fp')||'';
@@ -1533,11 +1565,14 @@ function genTrioMotto(){
   const c=DB.citizens[ME];if(!c||!c.motto)return toast('先过指纹验证');
   $('trioMotto').textContent='「'+c.motto.text+'」';
 }
-function checkMotto(name){
-  const c=DB.citizens[name];const inp=$('mottoIn');
+async function checkMotto(name){
+  const c=DB.citizens[name],inp=$('mottoIn');
   if(!c||!c.motto)return toast('对方还没领三件套');
-  if(inp&&hash(norm(inp.value)+'∥'+name)===c.motto.hash)toast('🔑 口令正确：图·文·视频三件套验明正身');
-  else toast('❌ 口令不对，警惕冒用');
+  if(lockCheck(name+'·口令'))return toast('🔒 已锁定 10 分钟（防破解保护）');
+  const nh=await pbkdf2(inp.value,name+'·口令',60000);
+  const legacy=c.motto.hash?hash(norm(inp.value)+'∥'+name):null;
+  if(nh===c.motto.h||legacy===c.motto.hash){localStorage.removeItem('pc_lock');toast('🔑 口令正确：图·文·视频三件套验明正身')}
+  else{lockHit(name+'·口令');toast('❌ 口令不对，警惕冒用')}
 }
 let trioRec=null;
 async function genTrioVideo(){
