@@ -1575,32 +1575,48 @@ async function checkMotto(name){
   else{lockHit(name+'·口令');toast('❌ 口令不对，警惕冒用')}
 }
 let trioRec=null;
-/* ===== 配方密钥：三环防盗（提示词原文×图生图选色×视频细节，PBKDF2 只存密文） ===== */
+/* ===== 配方密钥：三环防盗（形象×颜色×动作 + 提示词原文，PBKDF2 只存密文） =====
+   例：一只朱红的猫在捕蝶——三者错一个就不是本体 */
+const R_FORM=['猫','犬','龙','凤','鹤','虎','兔','鱼'];
 const R_COLORS=['朱红','黛蓝','玄黑','鎏金','翠青','月白','绛紫','松绿'];
-const R_V1=['印章居中','印章偏东','印章偏西','印章斜压角'];
-const R_V2=['云纹背景','水纹背景','雷纹背景','素面背景'];
-const R_V3=['正落章','斜落章','旋转落章','轻点落章'];
+const R_ACT=['睡觉','捕蝶','登高','戏球','望月','奔跑','梳毛','打盹'];
+const FORM_EMOJI={'猫':'🐱','犬':'🐶','龙':'🐉','凤':'🦅','鹤':'🕊️','虎':'🐯','兔':'🐰','鱼':'🐟'};
+const CHN_HEX={'朱红':'#c0392b','黛蓝':'#2c3e50','玄黑':'#1a1a1a','鎏金':'#c9a227','翠青':'#1abc9c','月白':'#dbe2e8','绛紫':'#8e44ad','松绿':'#27ae60'};
+function makeRecipeAvatar(name,form,color,act){
+  const cv=document.createElement('canvas');cv.width=cv.height=300;const g=cv.getContext('2d');
+  g.fillStyle='#fdfaf3';g.fillRect(0,0,300,300);
+  g.strokeStyle=color;g.lineWidth=6;g.beginPath();g.arc(150,138,112,0,7);g.stroke();
+  g.fillStyle=color;g.globalAlpha=.22;g.fill();g.globalAlpha=1;
+  g.font='104px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(FORM_EMOJI[form]||'🐱',150,134);
+  g.fillStyle=color;g.font='bold 30px sans-serif';g.fillText(form+' · '+act,150,262);
+  g.fillStyle='#555';g.font='20px sans-serif';g.fillText(name+' 的分身',150,288);
+  return cv.toDataURL('image/png');
+}
 function recipeRender(){
   const c=DB.citizens[ME],box=$('recipeBox');if(!c||!box)return;
   const sel=(id,arr)=>`<select id="${id}" style="width:100%;margin:4px 0">${arr.map(x=>`<option>${x}</option>`).join('')}</select>`;
-  box.innerHTML=`<div class="tag ${c.recipe?'green':''}">${c.recipe?'✅ 三环配方已设置（五项全密文）':'⚠️ 未设置——这是盗号者闯不过的关'}</div>
-  <input id="rPrompt" placeholder="第一关：文生图提示词原文" style="width:100%;margin:4px 0">
-  ${sel('rColor',R_COLORS)}${sel('rV1',R_V1)}${sel('rV2',R_V2)}${sel('rV3',R_V3)}
-  <button class="btn small" onclick="${c.recipe?'recipeVerify()':'recipeSet()'}">${c.recipe?'🔍 配方验真':'🔐 存储配方密钥'}</button>
-  <p class="hint">颜色8种 × 方位4 × 纹样4 × 落章4 = 512种组合，再乘上只有你知道的提示词原文——别人就算把海报和视频翻烂也倒推不出来；全答对才算本体。</p>`;
+  box.innerHTML=`<div class="tag ${c.recipe?'green':''}">${c.recipe?(c.recipe.f?'✅ 三环配方已设置（全密文）':'⚠️ 配方已升级，请重新设置'):'⚠️ 未设置——这是盗号者闯不过的关'}</div>
+  <input id="rPrompt" placeholder="第一关：提示词原文（如：一只毛茸茸的猫在庭院里）" style="width:100%;margin:4px 0">
+  <div style="display:flex;gap:6px">${sel('rForm',R_FORM).replace('style="width:100%','style="width:33%')}${sel('rColor',R_COLORS).replace('style="width:100%','style="width:33%')}${sel('rAct',R_ACT).replace('style="width:100%','style="width:33%')}</div>
+  <button class="btn small" onclick="${c.recipe&&c.recipe.f?'recipeVerify()':'recipeSet()'}">${c.recipe&&c.recipe.f?'🔍 配方验真':'🔐 存配方 · 生成分身形象'}</button>
+  ${c.recipe&&c.recipe.f?'<img src="'+c.avatar+'" width="130" style="border-radius:12px;border:1px solid var(--line);margin-top:6px;display:block">':''}
+  <p class="hint">形象8 × 颜色8 × 动作8 = 512种组合，再乘只有你知道的提示词原文。三者+原文，错一个就不是本体；全存PBKDF2密文，原文永不入库。</p>`;
 }
 async function recipeSet(){
   const c=DB.citizens[ME];if(!c)return;
   if(!$('rPrompt').value.trim())return toast('第一关：提示词原文必须填');
-  c.recipe={p:await pbkdf2($('rPrompt').value,ME+'·提示词'),c:await pbkdf2($('rColor').value,ME+'·选色'),v1:await pbkdf2($('rV1').value,ME+'·方位'),v2:await pbkdf2($('rV2').value,ME+'·纹样'),v3:await pbkdf2($('rV3').value,ME+'·落章')};
-  DB.save();toast('🧬 配方密钥已存——提示词原文永不明文入库，这就是盗不走的身份');recipeRender();
+  const f=$('rForm').value,col=$('rColor').value,act=$('rAct').value;
+  c.recipe={p:await pbkdf2($('rPrompt').value,ME+'·提示词'),f:await pbkdf2(f,ME+'·形象'),c:await pbkdf2(col,ME+'·颜色'),a:await pbkdf2(act,ME+'·动作')};
+  c.avatar=makeRecipeAvatar(ME,f,CHN_HEX[col],act);
+  DB.save();toast('🧬 配方已存，分身形象已生成：一只'+col+'的'+f+'在'+act+'——错一个就不是本体');renderID();recipeRender();
 }
 async function recipeVerify(){
-  const c=DB.citizens[ME];if(!c||!c.recipe)return;
+  const c=DB.citizens[ME];if(!c)return;
+  if(!c.recipe||!c.recipe.f)return toast('配方版本已升级，请重新设置一次');
   if(lockCheck(ME+'·配方'))return toast('🔒 已锁定 10 分钟（防破解保护）');
-  const [p,c1,v1,v2,v3]=await Promise.all([pbkdf2($('rPrompt').value,ME+'·提示词'),pbkdf2($('rColor').value,ME+'·选色'),pbkdf2($('rV1').value,ME+'·方位'),pbkdf2($('rV2').value,ME+'·纹样'),pbkdf2($('rV3').value,ME+'·落章')]);
-  if(p===c.recipe.p&&c1===c.recipe.c&&v1===c.recipe.v1&&v2===c.recipe.v2&&v3===c.recipe.v3){localStorage.removeItem('pc_lock');toast('🔑 三环全部答对——本体验明正身')}
-  else{lockHit(ME+'·配方');toast('❌ 配方不对：提示词、选色、视频细节要全对')}
+  const [p,f,c1,a]=await Promise.all([pbkdf2($('rPrompt').value,ME+'·提示词'),pbkdf2($('rForm').value,ME+'·形象'),pbkdf2($('rColor').value,ME+'·颜色'),pbkdf2($('rAct').value,ME+'·动作')]);
+  if(p===c.recipe.p&&f===c.recipe.f&&c1===c.recipe.c&&a===c.recipe.a){localStorage.removeItem('pc_lock');toast('🔑 形象·颜色·动作·提示词全对——本体验明正身')}
+  else{lockHit(ME+'·配方');toast('❌ 配方不对：形象、颜色、动作、提示词错一个就不是本体')}
 }
 async function genTrioVideo(){
   const c=DB.citizens[ME];if(!c)return;
