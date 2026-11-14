@@ -976,6 +976,11 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
     <div id="inboxBox"></div>
   </div>
   <div class="card">
+    <h2>🏛️ 应用市场 <span class="tag">神仙级开源应用 · 来者不拒</span></h2>
+    <p class="hint">GitHub 上被疯狂追捧的神仙应用，全部纳入你的枢纽——用同一个身份、同一套灵魂拷问密码进出门。在这里攒下的每一分贡献值都是分身资产，可传给继承人，付出永不打水漂。</p>
+    <div id="marketBox"></div>
+  </div>
+  <div class="card">
     <h2>🧰 原子工具集 <span class="tag">每个都是最小可用版 · 全手机本地跑</span></h2>
     <p class="hint">你的手机 = 所有工具的枢纽。轻到没有服务器，快到离线可用。</p>
     <div id="toolBox">
@@ -1236,6 +1241,29 @@ function restoreBundle(){
     rd.readAsText(f)};
   inp.click();
 }
+/* ===== 应用市场：神仙级开源应用 + 来者不拒自定义上架 ===== */
+DB.customApps=DB.customApps||[];
+const APPS=[
+ {n:'Excalidraw 画板',d:'手绘风白板，画图演示神器（MIT 开源）',u:'https://excalidraw.com'},
+ {n:'Photopea 修图',d:'网页版 PS，改图抠图做海报（免费）',u:'https://www.photopea.com'},
+ {n:'Squoosh 压图',d:'谷歌出品，图片压缩到极致（开源）',u:'https://squoosh.app'},
+ {n:'vscode.dev 写代码',d:'微软官方，浏览器里就是编辑器',u:'https://vscode.dev'},
+ {n:'tldraw 白板',d:'无限画布白板，随手讲解（开源）',u:'https://www.tldraw.com'},
+ {n:'CyberChef 加解密',d:'GCHQ 出品，数据加工瑞士军刀（开源）',u:'https://gchq.github.io/CyberChef/'}
+];
+function renderMarket(){
+  const box=$('marketBox');if(!box)return;
+  box.innerHTML=APPS.map(a=>`<div class="item"><b>${a.n}</b> · ${a.d}<br><a class="btn ghost small" style="text-decoration:none" href="${a.u}" target="_blank" rel="noopener">🚀 打开</a></div>`).join('')+
+  (DB.customApps.length?DB.customApps.map((a,i)=>`<div class="item"><b>${esc(a.n)}</b> · 自定义上架<br><a class="btn ghost small" style="text-decoration:none" href="${esc(a.u)}" target="_blank" rel="noopener">🚀 打开</a> <button class="btn ghost small" onclick="delApp(${i})">🗑️ 下架</button></div>`).join(''):'')+
+  `<div class="form-row"><input id="appUrl" placeholder="粘贴任意应用网址（来者不拒）"><input id="appName" placeholder="起个名" style="max-width:110px"><button class="btn small" style="flex:0 0 auto" onclick="addApp()">＋上架</button></div>
+  <p class="hint">想要哪个 GitHub 神仙项目做成原子版直接嵌进来？报名字，下个版本上。</p>`;
+}
+function addApp(){
+  const u=$('appUrl').value.trim(),n=$('appName').value.trim()||'我的应用';
+  if(!/^https?:\/\//.test(u))return toast('要 http/https 开头的网址');
+  DB.customApps.push({n,u});DB.save();renderMarket();toast('✅ 已上架到你的枢纽——来者不拒');
+}
+function delApp(i){DB.customApps.splice(i,1);DB.save();renderMarket()}
 function logout(){localStorage.removeItem('pc_me');ME=null;SOUL=null;renderID()}
 
 /* ===== 验卡 + 灵魂测试 ===== */
@@ -1778,6 +1806,7 @@ async function qrScan(){
 function renderHub(){
   const c=ME&&DB.citizens[ME],box=$('trioBox');
   renderInbox();
+  renderMarket();
   if(!c){box.innerHTML='<div class="banner">👋 游客体验模式：地图、学堂、工具随便玩。<br>办卡 → 指纹验证 → 领「图·口令·视频」三件套密码，解锁认领/发言/赚钱。<br><button class="btn" style="margin-top:8px" onclick="goto(\'id\')">🪪 去办卡</button></div>'}
   else if(!c.fpVerified){box.innerHTML='<div class="locked">🔒 第一步：过指纹验证——这是一人一身份的钥匙。<br><button class="btn" style="margin-top:8px" onclick="fpCheck()">🔐 立即验证</button></div>'}
   else{
