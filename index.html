@@ -846,6 +846,8 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
           <div style="display:flex;flex-direction:column;gap:8px">
             <button class="btn" onclick="window.print()">🖨️ 打印实体卡</button>
             <button class="btn ghost" onclick="copyShare()">📋 晒卡拉新</button>
+            <button class="btn ghost small" onclick="dlGame()">📤 游戏存档（发朋友离线玩）</button>
+            <button class="btn ghost small" onclick="dlBundle()">💾 身份存档（存U盘/收藏）</button>
             <button class="btn ghost small" onclick="fpCheck()">🔐 指纹核验（解锁广告权限）</button>
             <button class="btn ghost small" onclick="logout()">退出</button>
           </div>
@@ -861,6 +863,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
         <button class="btn" style="flex:0 0 auto" onclick="verify()">验证</button>
       </div>
       <div class="verdict" id="verdict"></div>
+      <button class="btn ghost small" style="margin-top:6px" onclick="restoreBundle()">📥 用身份存档恢复（换手机/丢手机）</button>
       <div id="soulTest" style="display:none;margin-top:10px">
         <p class="hint">🧬 <b>灵魂测试</b>：答对 3 道密语题，证明你就是本体（灵魂才是本体）。</p>
         <div id="soulQs"></div>
@@ -968,6 +971,11 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
     <canvas id="trioCanvas" width="720" height="960" style="display:none"></canvas>
   </div>
   <div class="card">
+    <h2>📮 存档收件箱 <span class="tag">分身是一辈子的财富 · 凭证永久寄存</span></h2>
+    <p class="hint">口令、灵魂拷问密码、办卡凭据——每次生成都会自动寄一份到这里。手机丢了、记性差了，打开就能重看一遍。灵魂三问的答案永远不寄存（只在脑子里），这是最后一道谁也偷不走的锁。凭这些，你的分身资产一辈子不打水漂，才敢放心在里面投入、打广告。</p>
+    <div id="inboxBox"></div>
+  </div>
+  <div class="card">
     <h2>🧰 原子工具集 <span class="tag">每个都是最小可用版 · 全手机本地跑</span></h2>
     <p class="hint">你的手机 = 所有工具的枢纽。轻到没有服务器，快到离线可用。</p>
     <div id="toolBox">
@@ -1055,6 +1063,18 @@ function lockCheck(n){
   const L=JSON.parse(localStorage.getItem('pc_lock')||'{}');
   return L[n+'_until']&&L[n+'_until']>Date.now();
 }
+/* ===== 存档收件箱：重要凭证自动寄存（只存本机，遗忘时重看） ===== */
+DB.inbox=DB.inbox||[];
+function inboxPush(title,body){
+  DB.inbox.unshift({t:Date.now(),title,body});
+  if(DB.inbox.length>50)DB.inbox.length=50;
+  DB.save();
+}
+function renderInbox(){
+  const box=$('inboxBox');if(!box)return;
+  if(!DB.inbox.length){box.innerHTML='<p class="hint">📭 暂无存档。办卡、指纹核验、正式录入灵魂拷问密码后，凭证会自动寄到这里。</p>';return}
+  box.innerHTML=DB.inbox.map(m=>`<div class="item"><b>${esc(m.title)}</b> <span class="tag">${new Date(m.t).toLocaleString('zh-CN')}</span><br><span style="color:var(--red-dark)">${esc(m.body)}</span></div>`).join('');
+}
 
 /* ===== 设备指纹（一人一身份第一道锁） ===== */
 async function getFP(){
@@ -1120,7 +1140,7 @@ async function register(){
     motto:null,
     soul:await Promise.all(qs.map((q,i)=>pbkdf2(as[i],name+'·'+q).then(h=>({q,h}))))  // 只存密文，永不明文
   };
-  DB.save();toast('办卡成功！身份已与这台设备的指纹绑定');renderID();
+  DB.save();inboxPush('🪪 办卡凭据','身份名:'+name+' · 卡号:'+cardNo(name)+' · 灵魂三问已设置（答案只在脑中，永不存档）');toast('办卡成功！身份已与这台设备的指纹绑定');renderID();
 }
 function genAvatar(name){
   const c=document.createElement('canvas');c.width=160;c.height=200;const x=c.getContext('2d');
@@ -1169,12 +1189,52 @@ async function fpCheck(){
   const fp=await getFP();
   if(fp!==c.fp)return toast('指纹不匹配：请在办卡的原始设备上核验');
   c.fpVerified=true;
-  if(!c.motto){const t=makeMotto(ME,c.city);c.motto={text:t,h:await pbkdf2(t,ME+'·口令',60000)}}
+  if(!c.motto){const t=makeMotto(ME,c.city);c.motto={text:t,h:await pbkdf2(t,ME+'·口令',60000)};inboxPush('🔑 口令原文（遗忘时来此重看）',t)}
   DB.save();toast('✅ 指纹通过！三件套密码已发放：图·口令·视频，去「枢纽」领取');renderID();renderHub();
 }
 function copyShare(){
   const c=DB.citizens[ME];if(!c)return;
   navigator.clipboard.writeText(`🪪 我在「平行中国」办了终身身份卡！\n${c.name} · 卡号 ${c.card_no}（扫码验真防冒用）\n分身正在里面学习赚钱，死了资产还能传给继承人。\n免费办卡：${location.origin+location.pathname}`).then(()=>toast('文案已复制，去群里晒！'));
+}
+/* ===== 存档：游戏本体 + 身份包（分身是一辈子的财富，凭证可随身带走） ===== */
+function dlGame(){
+  const finish=t=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/html;charset=utf-8'}));a.download='平行中国-可离线玩.html';a.click();toast('📤 游戏存档已下载——发给朋友存进手机，断网双击也能玩')};
+  if(location.protocol.startsWith('http'))fetch(location.href).then(r=>r.text()).then(finish).catch(()=>finish('<!DOCTYPE html>\n'+document.documentElement.outerHTML));
+  else finish('<!DOCTYPE html>\n'+document.documentElement.outerHTML);
+}
+function dlBundle(){
+  const c=DB.citizens[ME];if(!c)return toast('先办卡');
+  const bundle={ver:'平行中国身份包v1',name:c.name,card_no:c.card_no,city:c.city,created:c.created,heir:c.heir,partner:c.partner,dead:c.dead,skills:c.skills,xp:c.xp,warmth:c.warmth,study:c.study,soul:c.soul,motto:c.motto,recipe:c.recipe,fp:c.fp,avatar:c.avatar,exported:Date.now(),
+  note:'恢复条件：本文件 + 灵魂三问答案，缺一不可。文件被偷也无法冒充本体。'};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,1)],{type:'application/json'}));a.download='身份存档-'+c.name+'.json';a.click();
+  inboxPush('💾 身份存档已导出','存进U盘或发到自己微信收藏。换手机/丢手机时用「用身份存档恢复」+灵魂三问即可满血复活。');
+  toast('💾 身份存档已下载——存U盘或收藏，别人偷了也用不了');
+}
+function restoreBundle(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();
+    rd.onload=()=>{try{
+      const b=JSON.parse(rd.result);
+      if(!b||!b.name||!b.card_no||!b.soul)return toast('不是有效的身份存档');
+      if(DB.citizens[b.name]&&!DB.citizens[b.name].dead)return toast('该身份在本机已存在，无需恢复');
+      const ans=[];
+      b.soul.forEach((s,i)=>{const a=window.prompt('恢复身份「'+b.name+'」\n灵魂拷问'+(i+1)+'：'+s.q);ans.push(a===null?'':a)});
+      (async()=>{
+        for(let i=0;i<b.soul.length;i++){
+          const nh=await pbkdf2(ans[i],b.name+'·'+b.soul[i].q);
+          const legacy=b.soul[i].a?hash(norm(ans[i])+'∥'+b.name):null;
+          if(nh!==b.soul[i].h&&legacy!==b.soul[i].a)return toast('灵魂拷问答错——存档在别人手里也没用');
+        }
+        const c=JSON.parse(JSON.stringify(b));delete c.ver;delete c.exported;delete c.note;
+        c.fpVerified=false;c.lastSeen=Date.now();
+        DB.citizens[c.name]=c;DB.save();
+        ME=c.name;localStorage.setItem('pc_me',c.name);
+        inboxPush('📥 身份已从存档恢复',c.name+' 的经验、技能、资产已满血复活，重新过指纹核验即可继续。');
+        toast('✅ 身份已恢复！指纹已重置，到身份页重新核验');renderID();renderHub();
+      })();
+    }catch(e){toast('文件读取失败：'+e.message)}};
+    rd.readAsText(f)};
+  inp.click();
 }
 function logout(){localStorage.removeItem('pc_me');ME=null;SOUL=null;renderID()}
 
@@ -1625,6 +1685,7 @@ async function recipeSet(){
   c.recipe={p:await pbkdf2($('rPrompt').value,ME+'·提示词'),f:await pbkdf2(f,ME+'·形象'),c:await pbkdf2(col,ME+'·颜色'),a:await pbkdf2(act,ME+'·动作')};
   c.avatar=makeRecipeAvatar(ME,f,CHN_HEX[col],act);
   recipeDraftObj=null;
+  inboxPush('🧬 灵魂拷问密码（遗忘时来此重看）','提示词原文：'+$('rPrompt').value.trim()+' · 形象：'+f+' · 颜色：'+col+' · 动作：'+act+'（三者错一个就不是本体）');
   DB.save();toast('🧬 灵魂拷问密码正式录入：一只'+col+'的'+f+'在'+act+'——从此错一个环就不是本体');renderID();recipeRender();
 }
 async function recipeVerify(){
@@ -1716,6 +1777,7 @@ async function qrScan(){
 /* ===== 枢纽渲染 ===== */
 function renderHub(){
   const c=ME&&DB.citizens[ME],box=$('trioBox');
+  renderInbox();
   if(!c){box.innerHTML='<div class="banner">👋 游客体验模式：地图、学堂、工具随便玩。<br>办卡 → 指纹验证 → 领「图·口令·视频」三件套密码，解锁认领/发言/赚钱。<br><button class="btn" style="margin-top:8px" onclick="goto(\'id\')">🪪 去办卡</button></div>'}
   else if(!c.fpVerified){box.innerHTML='<div class="locked">🔒 第一步：过指纹验证——这是一人一身份的钥匙。<br><button class="btn" style="margin-top:8px" onclick="fpCheck()">🔐 立即验证</button></div>'}
   else{
